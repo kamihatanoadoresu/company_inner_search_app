@@ -231,9 +231,24 @@ def file_load(path, docs_all):
     if file_extension in ct.SUPPORTED_EXTENSIONS:
         # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
         loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
-        docs = loader.load()
-        docs_all.extend(docs)
+        
+        if file_extension.lower() == ".pdf":
+            # PDFファイルの場合、ページごとに分割して読み込み
+            pages = loader.load()
 
+            for i, page in enumerate(pages, start=1):
+                page.metadata["source"] = path
+                page.metadata["page"] = i
+                docs_all.append(page)
+
+        else:    
+            docs = loader.load()
+            for d in docs:
+                # PDF 以外には page の概念が基本的に無い
+                # ただし source だけ付ける
+                d.metadata["source"] = path
+
+            docs_all.extend(docs)
 
 def adjust_string(s):
     """
