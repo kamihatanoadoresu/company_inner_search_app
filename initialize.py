@@ -6,6 +6,7 @@
 # ライブラリの読み込み
 ############################################################
 import os
+import pandas as pd
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from uuid import uuid4
@@ -13,7 +14,8 @@ import sys
 import unicodedata
 from dotenv import load_dotenv
 import streamlit as st
-from docx import Document
+# from docx import Document
+from langchain_core.documents import Document
 from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
@@ -227,13 +229,31 @@ def file_load(path, docs_all):
     # ファイル名（拡張子を含む）を取得
     file_name = os.path.basename(path)
 
+    # CSV のみ特別処理（行を1つのドキュメントにまとめる）
+    if file_extension == ".csv":
+        df = pd.read_csv(path)
+
+        text_lines = []
+        for _, row in df.iterrows():
+            line = ", ".join([f"{col}: {row[col]}" for col in df.columns])
+            text_lines.append(line)
+
+        merged_text = "\n".join(text_lines)
+
+        doc = Document(
+            page_content=merged_text,
+            metadata={"source": path}
+        )
+        docs_all.append(doc)
+        return
+
     # 想定していたファイル形式の場合のみ読み込む
     if file_extension in ct.SUPPORTED_EXTENSIONS:
         # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
         loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
         
         if file_extension.lower() == ".pdf":
-            # PDFファイルの場合、ページごとに分割して読み込み
+            # 問題4：PDFファイルの場合、ページごとに分割して読み込み
             pages = loader.load()
 
             for i, page in enumerate(pages, start=1):
